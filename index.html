@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tire sua foto com o Seiya de Pegasus!</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #canvas3d {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: auto;
+            touch-action: none;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 200;
+            border: 2px solid gold;
+        }
+
+        #loading h2 {
+            color: #FFD700;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #FFD700;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #header {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #FFD700;
+            padding: 15px 25px;
+            border-radius: 25px;
+            text-align: center;
+            z-index: 100;
+            border: 2px solid #FFD700;
+            backdrop-filter: blur(10px);
+            pointer-events: none;
+        }
+
+        #header h1 {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        #header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        #cameraToggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 3px solid #FFD700;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+
+        #cameraToggle:active {
+            transform: scale(0.95);
+            background: rgba(255,215,0,0.3);
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            z-index: 100;
+            max-width: 90vw;
+        }
+
+        .control-btn {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            border: 3px solid #FFD700;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            font-size: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+            background: rgba(255,215,0,0.3);
+        }
+
+        #captureBtn {
+            width: 75px;
+            height: 75px;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            color: #000;
+            font-weight: bold;
+            font-size: 14px;
+            border: 3px solid #fff;
+            box-shadow: 0 4px 15px rgba(255,215,0,0.4);
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 15px;
+            font-size: 13px;
+            text-align: center;
+            z-index: 50;
+            border: 1px solid #FFD700;
+            backdrop-filter: blur(10px);
+            pointer-events: none;
+            max-width: 90%;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #capturedImage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        #capturedImage img {
+            max-width: 90%;
+            max-height: 70%;
+            border: 3px solid #FFD700;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(255,215,0,0.3);
+        }
+
+        #capturedImage .photo-controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+        }
+
+        #capturedImage button {
+            padding: 15px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s ease;
+        }
+
+        #capturedImage button:active {
+            transform: scale(0.95);
+        }
+
+        #downloadBtn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            box-shadow: 0 4px 15px rgba(76,175,80,0.4);
+        }
+
+        #shareBtn {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            color: white;
+            box-shadow: 0 4px 15px rgba(33,150,243,0.4);
+        }
+
+        #closeBtn {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            color: white;
+            box-shadow: 0 4px 15px rgba(244,67,54,0.4);
+        }
+
+        #errorMessage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(244,67,54,0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 300;
+            max-width: 90%;
+        }
+
+        /* Touch feedback */
+        .touch-feedback {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,215,0,0.8);
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 150;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .touch-feedback.show {
+            opacity: 1;
+        }
+
+        /* Responsivo */
+        @media (max-width: 480px) {
+            #header h1 { font-size: 18px; }
+            #header p { font-size: 12px; }
+            .control-btn { width: 50px; height: 50px; font-size: 10px; }
+            #captureBtn { width: 65px; height: 65px; font-size: 12px; }
+            #cameraToggle { width: 50px; height: 50px; font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas3d"></canvas>
+        
+        <div id="loading">
+            <h2>🌟 Carregando o Astronauta</h2>
+            <div class="loading-spinner"></div>
+            <p>Preparando sua experiência mágica...</p>
+        </div>
+        
+        <div id="header" class="hidden">
+            <h1>📸 Foto com Astronauta 3D!</h1>
+            <p>Toque e arraste para ajustar o personagem!</p>
+        </div>
+
+        <button id="cameraToggle" class="hidden" title="Trocar Câmera">🔄</button>
+        
+        <div id="touchFeedback" class="touch-feedback">
+            Arraste para mover • Pinça para zoom • Dois dedos para girar
+        </div>
+        
+        <div id="instructions" class="hidden">
+            ✋ Toque e arraste para mover<br>
+            🤏 Pinça para aumentar/diminuir<br>
+            ↻ Dois dedos para girar<br>
+            📸 Toque no botão para capturar
+        </div>
+        
+        <div id="controls" class="hidden">
+            <button class="control-btn" id="resetBtn" title="Resetar Posição">🏠<br>Reset</button>
+            <button class="control-btn" id="captureBtn" title="Tirar Foto">📸<br>FOTO</button>
+        </div>
+    </div>
+
+    <div id="capturedImage" class="hidden">
+        <img id="photoResult" src="" alt="Sua foto 3D!">
+        <div class="photo-controls">
+            <button id="shareBtn">📱 Compartilhar</button>
+            <button id="downloadBtn">💾 Baixar</button>
+            <button id="closeBtn">❌ Nova Foto</button>
+        </div>
+    </div>
+
+    <div id="errorMessage" class="hidden">
+        <h3>😢 Ops!</h3>
+        <p id="errorText"></p>
+        <button onclick="location.reload()" style="margin-top: 10px; padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px;">Tentar Novamente</button>
+    </div>
+
+    <script>
+        // Configuração do modelo 3D 
+        const MODEL_CONFIG = {
+            url: 'milho.glb',
+            initialScale: 0.8,
+            initialPosition: { x: 1.5, y: -0.5, z: 0 },
+            initialRotation: { x: 0, y: 0, z: 0 },
+            name: 'Milho 3D',
+            description: 'Tire sua foto épica com o Milho no São João de Monte Alegre!'
+        };
+
+        // Variáveis globais
+        let scene, camera, renderer, model;
+        let video, canvas3d;
+        let modelLoaded = false;
+        let modelScale = MODEL_CONFIG.initialScale;
+        let modelPosition = { ...MODEL_CONFIG.initialPosition };
+        let modelRotation = { ...MODEL_CONFIG.initialRotation };
+        
+        // Variáveis para controle de câmera
+        let currentFacingMode = 'environment'; // 'environment' = traseira, 'user' = frontal
+        
+        // Variáveis para controles de toque
+        let isPointerDown = false;
+        let pointerCount = 0;
+        let lastPointerPos = { x: 0, y: 0 };
+        let lastTouchDistance = 0;
+        let lastTouchAngle = 0;
+        let touchStartTime = 0;
+
+        // Inicializar aplicação
+        async function init() {
+            try {
+                await setupCamera();
+                setupThreeJS();
+                await loadModel();
+                setupControls();
+                setupTouchControls();
+                showInterface();
+                animate();
+            } catch (error) {
+                console.error('Erro na inicialização:', error);
+                showError('Erro ao inicializar a aplicação: ' + error.message);
+            }
+        }
+
+        // Configurar acesso à câmera
+        async function setupCamera() {
+            video = document.getElementById('video');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: currentFacingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                video.srcObject = stream;
+                
+                return new Promise((resolve) => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        console.log('Câmera configurada:', currentFacingMode);
+                        resolve();
+                    };
+                });
+            } catch (error) {
+                console.error('Erro ao acessar câmera:', error);
+                throw new Error('Não foi possível acessar a câmera. Verifique as permissões.');
+            }
+        }
+
+        // Trocar câmera (frontal/traseira)
+        async function toggleCamera() {
+            try {
+                // Parar stream atual
+                const stream = video.srcObject;
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                
+                // Trocar modo da câmera
+                currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+                
+                // Configurar nova câmera
+                await setupCamera();
+                
+                // Feedback visual
+                showTouchFeedback(`Câmera ${currentFacingMode === 'environment' ? 'traseira' : 'frontal'} ativada`);
+                
+            } catch (error) {
+                console.error('Erro ao trocar câmera:', error);
+                // Voltar para o modo anterior se der erro
+                currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+                alert('Não foi possível trocar a câmera. Usando câmera atual.');
+            }
+        }
+
+        // Configurar Three.js
+        function setupThreeJS() {
+            canvas3d = document.getElementById('canvas3d');
+            
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+            
+            renderer = new THREE.WebGLRenderer({ 
+                canvas: canvas3d, 
+                alpha: true,
+                antialias: true,
+                preserveDrawingBuffer: true
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000, 0);
+            
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+            
+            console.log('Three.js configurado');
+        }
+
+        // Carregar modelo 3D
+        async function loadModel() {
+            return new Promise((resolve, reject) => {
+                const loader = new THREE.GLTFLoader();
+                
+                loader.load(
+                    MODEL_CONFIG.url,
+                    function(gltf) {
+                        model = gltf.scene;
+                        model.scale.set(modelScale, modelScale, modelScale);
+                        model.position.set(modelPosition.x, modelPosition.y, modelPosition.z);
+                        model.rotation.set(modelRotation.x, modelRotation.y, modelRotation.z);
+                        
+                        scene.add(model);
+                        modelLoaded = true;
+                        
+                        console.log('Modelo carregado');
+                        resolve();
+                    },
+                    function(progress) {
+                        const percent = (progress.loaded / progress.total * 100);
+                        console.log('Progresso: ' + percent.toFixed(1) + '%');
+                    },
+                    function(error) {
+                        console.error('Erro ao carregar modelo:', error);
+                        reject(new Error('Não foi possível carregar o modelo 3D.'));
+                    }
+                );
+            });
+        }
+
+        // Configurar controles básicos
+        function setupControls() {
+            // Botão de captura
+            document.getElementById('captureBtn').addEventListener('click', capturePhoto);
+            
+            // Botão de trocar câmera
+            document.getElementById('cameraToggle').addEventListener('click', toggleCamera);
+            
+            // Botão de reset
+            document.getElementById('resetBtn').addEventListener('click', resetModelPosition);
+            
+            // Controles da foto capturada
+            document.getElementById('downloadBtn').addEventListener('click', downloadPhoto);
+            document.getElementById('shareBtn').addEventListener('click', sharePhoto);
+            document.getElementById('closeBtn').addEventListener('click', closePhoto);
+        }
+
+        // Configurar controles de toque
+        function setupTouchControls() {
+            const canvas = canvas3d;
+            
+            // Eventos de toque
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+            
+            // Eventos de mouse (para desktop)
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('wheel', handleWheel, { passive: false });
+            
+            console.log('Controles de toque configurados');
+        }
+
+        // Tratar início do toque
+        function handleTouchStart(e) {
+            e.preventDefault();
+            pointerCount = e.touches.length;
+            touchStartTime = Date.now();
+            
+            if (pointerCount === 1) {
+                // Um dedo - movimento
+                const touch = e.touches[0];
+                lastPointerPos = { x: touch.clientX, y: touch.clientY };
+                isPointerDown = true;
+                showTouchFeedback('Movendo objeto');
+            } else if (pointerCount === 2) {
+                // Dois dedos - zoom e rotação
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                
+                lastTouchDistance = Math.hypot(
+                    touch2.clientX - touch1.clientX,
+                    touch2.clientY - touch1.clientY
+                );
+                
+                lastTouchAngle = Math.atan2(
+                    touch2.clientY - touch1.clientY,
+                    touch2.clientX - touch1.clientX
+                );
+                
+                showTouchFeedback('Zoom e rotação');
+            }
+        }
+
+        // Tratar movimento do toque
+        function handleTouchMove(e) {
+            e.preventDefault();
+            
+            if (!model) return;
+            
+            if (e.touches.length === 1 && isPointerDown) {
+                // Movimento com um dedo
+                const touch = e.touches[0];
+                const deltaX = (touch.clientX - lastPointerPos.x) * 0.01;
+                const deltaY = (touch.clientY - lastPointerPos.y) * -0.01;
+                
+                model.position.x += deltaX;
+                model.position.y += deltaY;
+                
+                lastPointerPos = { x: touch.clientX, y: touch.clientY };
+                
+            } else if (e.touches.length === 2) {
+                // Zoom e rotação com dois dedos
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                
+                // Calcular zoom
+                const currentDistance = Math.hypot(
+                    touch2.clientX - touch1.clientX,
+                    touch2.clientY - touch1.clientY
+                );
+                
+                const scaleChange = (currentDistance - lastTouchDistance) * 0.005;
+                modelScale = Math.max(0.2, Math.min(3.0, modelScale + scaleChange));
+                model.scale.set(modelScale, modelScale, modelScale);
+                
+                // Calcular rotação
+                const currentAngle = Math.atan2(
+                    touch2.clientY - touch1.clientY,
+                    touch2.clientX - touch1.clientX
+                );
+                
+                const rotationChange = currentAngle - lastTouchAngle;
+                model.rotation.y += rotationChange;
+                
+                lastTouchDistance = currentDistance;
+                lastTouchAngle = currentAngle;
+            }
+        }
+
+        // Tratar fim do toque
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            pointerCount = e.touches.length;
+            
+            if (pointerCount === 0) {
+                isPointerDown = false;
+                hideTouchFeedback();
+            }
+        }
+
+        // Controles de mouse (para teste no desktop)
+        function handleMouseDown(e) {
+            isPointerDown = true;
+            lastPointerPos = { x: e.clientX, y: e.clientY };
+        }
+
+        function handleMouseMove(e) {
+            if (!isPointerDown || !model) return;
+            
+            const deltaX = (e.clientX - lastPointerPos.x) * 0.01;
+            const deltaY = (e.clientY - lastPointerPos.y) * -0.01;
+            
+            if (e.shiftKey) {
+                // Shift + arrastar = rotação
+                model.rotation.y += deltaX;
+            } else {
+                // Arrastar normal = movimento
+                model.position.x += deltaX;
+                model.position.y += deltaY;
+            }
+            
+            lastPointerPos = { x: e.clientX, y: e.clientY };
+        }
+
+        function handleMouseUp(e) {
+            isPointerDown = false;
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            if (!model) return;
+            
+            const scaleChange = e.deltaY * -0.001;
+            modelScale = Math.max(0.2, Math.min(3.0, modelScale + scaleChange));
+            model.scale.set(modelScale, modelScale, modelScale);
+        }
+
+        // Resetar posição do modelo
+        function resetModelPosition() {
+            if (!model) return;
+            
+            modelScale = MODEL_CONFIG.initialScale;
+            modelPosition = { ...MODEL_CONFIG.initialPosition };
+            modelRotation = { ...MODEL_CONFIG.initialRotation };
+            
+            model.scale.set(modelScale, modelScale, modelScale);
+            model.position.set(modelPosition.x, modelPosition.y, modelPosition.z);
+            model.rotation.set(modelRotation.x, modelRotation.y, modelRotation.z);
+            
+            showTouchFeedback('Posição resetada');
+        }
+
+        // Mostrar feedback de toque
+        function showTouchFeedback(message) {
+            const feedback = document.getElementById('touchFeedback');
+            feedback.textContent = message;
+            feedback.classList.add('show');
+        }
+
+        // Esconder feedback de toque
+        function hideTouchFeedback() {
+            setTimeout(() => {
+                const feedback = document.getElementById('touchFeedback');
+                feedback.classList.remove('show');
+            }, 1000);
+        }
+
+        // Mostrar interface após carregar
+        function showInterface() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('header').classList.remove('hidden');
+            document.getElementById('cameraToggle').classList.remove('hidden');
+            document.getElementById('instructions').classList.remove('hidden');
+            document.getElementById('controls').classList.remove('hidden');
+        }
+
+        // Mostrar erro
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('errorText').textContent = message;
+            document.getElementById('errorMessage').classList.remove('hidden');
+        }
+
+        // Capturar foto
+        function capturePhoto() {
+            if (!modelLoaded || !model) {
+                alert('Aguarde o modelo carregar completamente!');
+                return;
+            }
+
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const videoWidth = video.videoWidth || 1280;
+                const videoHeight = video.videoHeight || 720;
+                
+                canvas.width = videoWidth;
+                canvas.height = videoHeight;
+                
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const canvas3d = document.createElement('canvas');
+                canvas3d.width = canvas.width;
+                canvas3d.height = canvas.height;
+                
+                const tempRenderer = new THREE.WebGLRenderer({ 
+                    canvas: canvas3d, 
+                    alpha: true,
+                    antialias: true,
+                    preserveDrawingBuffer: true
+                });
+                tempRenderer.setSize(canvas.width, canvas.height);
+                tempRenderer.setClearColor(0x000000, 0);
+                
+                const tempCamera = camera.clone();
+                tempCamera.aspect = canvas.width / canvas.height;
+                tempCamera.updateProjectionMatrix();
+                
+                tempRenderer.render(scene, tempCamera);
+                
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.drawImage(canvas3d, 0, 0);
+                
+                const photoResult = document.getElementById('photoResult');
+                const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+                photoResult.src = dataURL;
+                
+                document.getElementById('capturedImage').classList.remove('hidden');
+                
+                tempRenderer.dispose();
+                
+            } catch (error) {
+                console.error('Erro ao capturar foto:', error);
+                alert('Erro ao capturar a foto. Tente novamente.');
+            }
+        }
+
+        // Baixar foto
+        function downloadPhoto() {
+            const link = document.createElement('a');
+            link.download = `foto-3d-${Date.now()}.jpg`;
+            link.href = document.getElementById('photoResult').src;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Compartilhar foto
+        async function sharePhoto() {
+            try {
+                if (navigator.share) {
+                    const photoResult = document.getElementById('photoResult');
+                    const response = await fetch(photoResult.src);
+                    const blob = await response.blob();
+                    const file = new File([blob], 'foto-3d.jpg', { type: 'image/jpeg' });
+                    
+                    await navigator.share({
+                        title: 'Minha foto 3D!',
+                        text: 'Olha que foto incrível eu tirei! 🌟',
+                        files: [file]
+                    });
+                } else {
+                    downloadPhoto();
+                }
+            } catch (error) {
+                downloadPhoto();
+            }
+        }
+
+        // Fechar visualização da foto
+        function closePhoto() {
+            document.getElementById('capturedImage').classList.add('hidden');
+        }
+
+        // Loop de animação
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (modelLoaded && model && renderer) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        // Redimensionar canvas quando a tela muda
+        window.addEventListener('resize', () => {
+            if (camera && renderer) {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        });
+
+        // Inicializar quando a página carregar
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
